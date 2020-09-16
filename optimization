@@ -1,0 +1,51 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Sep 16 18:36:13 2020
+
+@author: pengxiang Cheng
+"""
+import numpy as np
+from sympy import diff, symbols
+
+
+class  optimization(object):
+    def __init__(self,fun,gfun,hess,step,x_init):
+        self.fun = fun
+        self.gfun = gfun
+        self.hess = hess
+        self.step = step
+        self.x_init = x_init
+        
+    def Quasi_Newton(self):
+        pass
+    
+    def Newton(self):
+        i = 1 # Record Interation times
+        while i <= self.step:
+            if i == 1:
+                grandient_obj = self.gfun(self.x_init)
+                hessian_obj = self.hess(self.x_init)
+                inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
+                s_k =  np.matmul(inverse, grandient_obj) # Newton Direction
+                x_new = self.x_init -s_k # First Iteration
+                i += 1
+            else:
+                
+                grandient_obj = self.gfun(x_new)
+                hessian_obj = self.hess(x_new)
+                inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
+                s_k =  np.matmul(inverse, grandient_obj) # Newton Direction       
+                x_new = x_new - s_k # Iteration
+                i += 1
+        return x_new
+    
+if __name__ == '__main__' :
+    #fun  function
+    #gfun gradient matrix
+    #hess Hessian matrix
+    fun = lambda x:100*(x[1] - x[0]**2)**2 +(1 - x[0])**2
+    gfun = lambda x:np.array([400*x[0]*(x[0]**2 - x[1]) + 2*(x[0] - 1),-200*(x[0]**2 - x[1])])
+    hess = lambda x:np.array([[1200*x[0]**2 - 400*x[1] + 2,-400*x[0]],[-400*x[0],200]])
+    x_init=[1,0]
+    opti = optimization(fun,gfun,hess,20,x_init)
+    print(opti.Newton())
