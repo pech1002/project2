@@ -25,6 +25,7 @@ class  optimization(object):
             if i == 1:
                 grandient_obj = self.gfun(self.x_init)
                 hessian_obj = self.hess(self.x_init)
+                hessian_obj = (hessian_obj + hessian_obj.T)/2
                 inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
                 s_k =  np.matmul(inverse, grandient_obj) # Newton Direction
                 x_new = self.x_init -s_k # First Iteration
@@ -33,6 +34,7 @@ class  optimization(object):
                 
                 grandient_obj = self.gfun(x_new)
                 hessian_obj = self.hess(x_new)
+                hessian_obj = (hessian_obj + hessian_obj.T)/2
                 inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
                 s_k =  np.matmul(inverse, grandient_obj) # Newton Direction       
                 x_new = x_new - s_k # Iteration
