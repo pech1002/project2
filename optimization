@@ -45,7 +45,8 @@ class  optimization(object):
                 and gfun(x0 + alfa**m *s_k)*s_k.T >= sigma * (gk * s_k.T):         
                 mk = m
                 break
-            m += 1            
+            m += 1 
+        print("mk",mk)
         return alfa**mk
     
     def Coldstein(self,alfa,rho,sigma,gk,s_k,x0): #Goldstein
@@ -56,12 +57,25 @@ class  optimization(object):
                   and fun(x0 + alfa ** m * s_k) > (fun(x0) + (1-rho)*(alfa**m)*(gk*s_k.T)):         
                 mk = m
                 break
-            m += 1            
+            m += 1 
+        
         return alfa**mk
+    def DFP(self,Hk,sk,yk):
+        Hk = Hk - (Hk * yk.T * yk * Hk) / (yk * Hk * yk.T) +\
+                    (sk.T * sk) / (sk * yk.T) # DFP method
+        return Hk
+    
+    def BFGS(self,Hk,sk,yk):
+        
+        yHy = (yk * Hk * yk.T) / (sk * yk.T)
+        yHy = float(yHy)
+        Hk = Hk + (1 + yHy) * ((sk.T * sk)/(sk * yk.T)) \
+            - (sk.T*yk*Hk + Hk * yk.T*sk)/(sk * yk.T)
+        return Hk
     
     def Quasi_Newton(self):
         x0 = self.x_init
-        k_max = 50
+        k_max =500
         alfa = 0.1
         rho = 0.1
         sigma = 0.7
@@ -72,20 +86,20 @@ class  optimization(object):
         while(k < k_max):           
             gk = gfun(x0)
             s_k = -gk*Hk
+            print("gk:",gk)
+            print("s_k:",s_k)
             if np.linalg.norm(gk) < eps:
                 break            
             alfa = self.Wolfe_powell(alfa,rho,sigma,gk,s_k,x0)
             # alfa = self.Coldstein(alfa,rho,sigma,gk,s_k,x0)
             x = x0 +alfa *s_k
+            print(x)
             sk = x - x0
-            yk = gfun(x) - gk    
-            if sk * yk.T> 0:  
-                Hk = Hk - (Hk * yk.T * yk * Hk) / (yk * Hk * yk.T) +\
-                    (sk.T * sk) / (sk * yk.T) # DFP method
-
-                # Hk = Hk + (1 + (yk * Hk * yk.T) / (sk.T * yk)) * ((sk.T * sk)/(sk * yk.T)) \
-                #     + (sk.T*yk*Hk + Hk * yk.T*sk)/(sk * yk.T)
-                # Hk = Hk - (Hk*sk.T*sk*Hk)/(sk*Hk*sk.T) + (yk.T*yk)/(yk*sk.T)
+            yk = gfun(x) - gk  
+            
+            if sk * yk.T> 0:                  
+                Hk = self.DFP(Hk,sk,yk)
+                # Hk = self.BFGS(Hk,sk,yk)
             k += 1
             x0 = x
             
