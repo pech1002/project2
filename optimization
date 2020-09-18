@@ -5,7 +5,7 @@ Created on Wed Sep 16 18:36:13 2020
 @author: pengxiang Cheng
 """
 import numpy as np
-from sympy import diff, symbols
+np.seterr(divide='ignore',invalid='ignore')
 
 
 class  optimization(object):
@@ -14,10 +14,7 @@ class  optimization(object):
         self.gfun = gfun
         self.hess = hess
         self.step = step
-        self.x_init = x_init
-        
-    def Quasi_Newton(self):
-        pass
+        self.x_init = x_init       
     
     def Newton(self):
         i = 1 # Record Interation times
@@ -27,27 +24,81 @@ class  optimization(object):
                 hessian_obj = self.hess(self.x_init)
                 hessian_obj = (hessian_obj + hessian_obj.T)/2
                 inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
-                s_k =  np.matmul(inverse, grandient_obj) # Newton Direction
+                s_k =  grandient_obj *inverse  # Newton Direction
                 x_new = self.x_init -s_k # First Iteration
                 i += 1
             else:
-                
                 grandient_obj = self.gfun(x_new)
                 hessian_obj = self.hess(x_new)
                 hessian_obj = (hessian_obj + hessian_obj.T)/2
                 inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
-                s_k =  np.matmul(inverse, grandient_obj) # Newton Direction       
+                s_k =  grandient_obj *inverse  # Newton Direction       
                 x_new = x_new - s_k # Iteration
-                i += 1
+                i += 1      
         return x_new
+    def Wolfe_powell(self,alfa,rho,sigma,gk,s_k,x0): #Wolfe-powell  
+        m = 0 
+        mk = 0
+        while(m<20):
+            
+            if fun(x0 + alfa ** m * s_k) < (fun(x0) + rho*(alfa**m)*(gk*s_k.T))\
+                and gfun(x0 + alfa**m *s_k)*s_k.T >= sigma * (gk * s_k.T):         
+                mk = m
+                break
+            m += 1            
+        return alfa**mk
+    
+    def Coldstein(self,alfa,rho,sigma,gk,s_k,x0): #Goldstein
+        m = 0 
+        mk = 0
+        while(m<20):
+            if fun(x0 + alfa ** m * s_k) < (fun(x0) + rho*(alfa**m)*(gk*s_k.T)) \
+                  and fun(x0 + alfa ** m * s_k) > (fun(x0) + (1-rho)*(alfa**m)*(gk*s_k.T)):         
+                mk = m
+                break
+            m += 1            
+        return alfa**mk
+    
+    def Quasi_Newton(self):
+        x0 = self.x_init
+        k_max = 50
+        alfa = 0.1
+        rho = 0.1
+        sigma = 0.7
+        eps = 1e-6
+        k = 0
+        Hk = np.eye(2)
+        Hk = np.matrix(Hk)
+        while(k < k_max):           
+            gk = gfun(x0)
+            s_k = -gk*Hk
+            if np.linalg.norm(gk) < eps:
+                break            
+            alfa = self.Wolfe_powell(alfa,rho,sigma,gk,s_k,x0)
+            # alfa = self.Coldstein(alfa,rho,sigma,gk,s_k,x0)
+            x = x0 +alfa *s_k
+            sk = x - x0
+            yk = gfun(x) - gk    
+            if sk * yk.T> 0:  
+                Hk = Hk - (Hk * yk.T * yk * Hk) / (yk * Hk * yk.T) +\
+                    (sk.T * sk) / (sk * yk.T) # DFP method
+
+                # Hk = Hk + (1 + (yk * Hk * yk.T) / (sk.T * yk)) * ((sk.T * sk)/(sk * yk.T)) \
+                #     + (sk.T*yk*Hk + Hk * yk.T*sk)/(sk * yk.T)
+                # Hk = Hk - (Hk*sk.T*sk*Hk)/(sk*Hk*sk.T) + (yk.T*yk)/(yk*sk.T)
+            k += 1
+            x0 = x
+            
+        return x0,self.fun(x0),k
     
 if __name__ == '__main__' :
     #fun  function
     #gfun gradient matrix
     #hess Hessian matrix
-    fun = lambda x:100*(x[1] - x[0]**2)**2 +(1 - x[0])**2
-    gfun = lambda x:np.array([400*x[0]*(x[0]**2 - x[1]) + 2*(x[0] - 1),-200*(x[0]**2 - x[1])])
-    hess = lambda x:np.array([[1200*x[0]**2 - 400*x[1] + 2,-400*x[0]],[-400*x[0],200]])
-    x_init=[1,0]
-    opti = optimization(fun,gfun,hess,20,x_init)
-    print(opti.Newton())
+    fun =  lambda x:100*(x[0,1] - x[0,0]**2)**2 +(1 - x[0,0])**2
+    gfun = lambda x:np.matrix([400*x[0,0]*(x[0,0]**2 - x[0,1]) + 2*(x[0,0] - 1),-200*(x[0,0]**2 - x[0,1])])
+    hess = lambda x:np.matrix([[1200*x[0,0]**2 - 400*x[0,1] + 2,-400*x[0,0]],[-400*x[0,0],200]])
+    x_init=np.matrix([0,0])
+    opti = optimization(fun,gfun,hess,100,x_init)
+    print("Newton:",opti.Newton())
+    print("Quasi_newton:",opti.Quasi_Newton()[0]," Iteration:",opti.Quasi_Newton()[2],"Times")
