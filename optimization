@@ -5,6 +5,7 @@ Created on Wed Sep 16 18:36:13 2020
 @author: pengxiang Cheng
 """
 import numpy as np
+import matplotlib.pyplot as plt
 np.seterr(divide='ignore',invalid='ignore')
 
 
@@ -14,29 +15,34 @@ class  optimization(object):
         self.gfun = gfun
         self.hess = hess
         self.step = step
-        self.x_init = x_init       
-    
-    def Newton(self):
-        i = 1 # Record Interation times
-        while i <= self.step:
-            if i == 1:
-                grandient_obj = self.gfun(self.x_init)
-                hessian_obj = self.hess(self.x_init)
-                hessian_obj = (hessian_obj + hessian_obj.T)/2
-                inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
-                s_k =  grandient_obj *inverse  # Newton Direction
-                x_new = self.x_init -s_k # First Iteration
-                i += 1
-            else:
-                grandient_obj = self.gfun(x_new)
-                hessian_obj = self.hess(x_new)
-                hessian_obj = (hessian_obj + hessian_obj.T)/2
-                inverse = np.linalg.inv(hessian_obj) # Inverse hessian matrix
-                s_k =  grandient_obj *inverse  # Newton Direction       
-                x_new = x_new - s_k # Iteration
-                i += 1      
+        self.x_init = x_init   
+        
+    def Newton_class(self,x_new):
+        
+        gk = self.gfun(x_new)
+        hk = self.hess(x_new)
+        hk = (hk + hk)/2
+        inverse = np.linalg.inv(hk) # Inverse hessian matrix
+        s_k =  gk *inverse  # Newton Direction
+        x_new = x_new -s_k # First Iteration
+        
         return x_new
-    def Wolfe_powell(self,alfa,rho,sigma,gk,s_k,x0): #Wolfe-powell  
+        
+    def Newton(self):
+        
+        k = 1 # Record Interation times
+        while k <= self.step:
+            if k == 1:
+                x_new = self.x_init
+                x_new = self.Newton_class(x_new)
+                k += 1
+            else:
+                x_new = self.Newton_class(x_new)
+                k += 1      
+        return x_new
+    
+    def Wolfe_powell(self,alfa,rho,sigma,gk,s_k,x0): #Wolfe-powell 
+    
         m = 0 
         mk = 0
         while(m<20):
@@ -46,20 +52,20 @@ class  optimization(object):
                 mk = m
                 break
             m += 1 
-        print("mk",mk)
-        return alfa**mk
+        return mk
     
     def Coldstein(self,alfa,rho,sigma,gk,s_k,x0): #Goldstein
         m = 0 
         mk = 0
         while(m<20):
+            # print("fun:",fun(x0 + alfa ** m * s_k))
             if fun(x0 + alfa ** m * s_k) < (fun(x0) + rho*(alfa**m)*(gk*s_k.T)) \
                   and fun(x0 + alfa ** m * s_k) > (fun(x0) + (1-rho)*(alfa**m)*(gk*s_k.T)):         
                 mk = m
                 break
             m += 1 
         
-        return alfa**mk
+        return mk
     def DFP(self,Hk,sk,yk):
         Hk = Hk - (Hk * yk.T * yk * Hk) / (yk * Hk * yk.T) +\
                     (sk.T * sk) / (sk * yk.T) # DFP method
@@ -70,49 +76,76 @@ class  optimization(object):
         yHy = (yk * Hk * yk.T) / (sk * yk.T)
         yHy = float(yHy)
         Hk = Hk + (1 + yHy) * ((sk.T * sk)/(sk * yk.T)) \
-            - (sk.T*yk*Hk + Hk * yk.T*sk)/(sk * yk.T)
+            - (sk.T*yk*Hk + Hk * yk.T*sk)/(sk * yk.T)   
         return Hk
     
     def Quasi_Newton(self):
+        result = []
         x0 = self.x_init
         k_max =500
         alfa = 0.1
         rho = 0.1
         sigma = 0.7
-        eps = 1e-6
+        eps = 1e-5
         k = 0
-        Hk = np.eye(2)
+        # Hk = np.eye(2)
+        Hk = np.linalg.inv(hess(x0))
         Hk = np.matrix(Hk)
         while(k < k_max):           
             gk = gfun(x0)
             s_k = -gk*Hk
-            print("gk:",gk)
-            print("s_k:",s_k)
             if np.linalg.norm(gk) < eps:
                 break            
-            alfa = self.Wolfe_powell(alfa,rho,sigma,gk,s_k,x0)
-            # alfa = self.Coldstein(alfa,rho,sigma,gk,s_k,x0)
-            x = x0 +alfa *s_k
-            print(x)
+            #mk = self.Wolfe_powell(alfa,rho,sigma,gk,s_k,x0)
+            mk = self.Coldstein(alfa,rho,sigma,gk,s_k,x0)
+            x = x0 +alfa**mk *s_k
             sk = x - x0
             yk = gfun(x) - gk  
             
             if sk * yk.T> 0:                  
                 Hk = self.DFP(Hk,sk,yk)
-                # Hk = self.BFGS(Hk,sk,yk)
+                #Hk = self.BFGS(Hk,sk,yk)
             k += 1
             x0 = x
+            result.append(self.fun(x0))
             
-        return x0,self.fun(x0),k
+        return x0,result,k
+
     
 if __name__ == '__main__' :
+    
+    def Contour_plot(levels):
+     
+        X1=np.arange(-0.5,2.0+0.05,0.05)
+        X2=np.arange(-1.5,4+0.05,0.05)
+        [x1,x2]=np.meshgrid(X1,X2)
+        f = (1-x1)**2 +100*(x2 - x1**2)**2
+        plt.figure()
+        plt.contour(x1,x2,f,20,colors='k') # 画出函数的20条轮廓线
+        plt.title("Rosenbrock Function:f(x,y)= (1-x)$^2$+100(y-x$^2$)$^2$") 
+        plt.xlabel("x")
+        plt.ylabel("y")
+        
+        plt.figure()
+        contour = plt.contour(x1,x2,f,levels = [0.02,1],colors='k')
+        plt.clabel(contour,fontsize=10,colors=('k','r'))
+        plt.title("Steps of Powell's method to computer a minimum") 
+        plt.xlabel("x")
+        plt.ylabel("y")
+    
+        
     #fun  function
     #gfun gradient matrix
     #hess Hessian matrix
     fun =  lambda x:100*(x[0,1] - x[0,0]**2)**2 +(1 - x[0,0])**2
     gfun = lambda x:np.matrix([400*x[0,0]*(x[0,0]**2 - x[0,1]) + 2*(x[0,0] - 1),-200*(x[0,0]**2 - x[0,1])])
     hess = lambda x:np.matrix([[1200*x[0,0]**2 - 400*x[0,1] + 2,-400*x[0,0]],[-400*x[0,0],200]])
-    x_init=np.matrix([0,0])
+    x_init=np.matrix([2,0])
     opti = optimization(fun,gfun,hess,100,x_init)
     print("Newton:",opti.Newton())
     print("Quasi_newton:",opti.Quasi_Newton()[0]," Iteration:",opti.Quasi_Newton()[2],"Times")
+    levels = opti.Quasi_Newton()[1]
+    levels.sort()
+    Contour_plot(levels)
+    
+    
